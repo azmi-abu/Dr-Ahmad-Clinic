@@ -1,21 +1,54 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 
+exports.getTreatmentTypes = (req, res) => {
+  const types = Appointment.schema.path('type').enumValues;
+  res.json(types);
+};
+
 // Create a new appointment
 exports.createAppointment = async (req, res) => {
-  const { doctorId, type, date } = req.body;
+  console.log('[CREATE APPOINTMENT] Body:', req.body);
+  console.log('[User]', req.user);
+
   try {
-    const appointment = await Appointment.create({
-      patient: req.user.id,
-      doctor: doctorId,
-      type,
-      date
-    });
-    res.json(appointment);
+    const { patientId, date, type, doctorId } = req.body;
+
+    if (req.user.role === 'patient') {
+      if (!doctorId || !type || !date) {
+        return res.status(400).json({ message: 'Missing fields for patient booking' });
+      }
+
+      const appointment = await Appointment.create({
+        patient: req.user.id,
+        doctor: doctorId,
+        type,
+        date
+      });
+      return res.status(201).json(appointment);
+    }
+
+    if (req.user.role === 'doctor') {
+      if (!patientId || !date) {
+        return res.status(400).json({ message: 'Patient ID and date are required' });
+      }
+
+      const appointment = await Appointment.create({
+        doctor: req.user.id,
+        patient: patientId,
+        type: type || 'General',
+        date,
+      });
+      return res.status(201).json(appointment);
+    }
+
+    return res.status(403).json({ message: 'Unauthorized role' });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('[ERROR creating appointment]', err);
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
+
 
 // Get appointments for the logged-in user
 exports.getMyAppointments = async (req, res) => {
@@ -23,6 +56,34 @@ exports.getMyAppointments = async (req, res) => {
   const appointments = await Appointment.find({ [roleField]: req.user.id }).populate('patient doctor');
   res.json(appointments);
 };
+
+exports.updateAppointment = async (req, res) => {
+  const { id } = req.params;
+  const { date, type } = req.body;
+
+  try {
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+    // Optional: permission check
+    if (
+      appointment.doctor.toString() !== req.user.id &&
+      appointment.patient.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ message: 'Not authorized to update this appointment' });
+    }
+
+    if (date) appointment.date = date;
+    if (type) appointment.type = type;
+
+    await appointment.save();
+    res.json(appointment);
+  } catch (err) {
+    console.error('[UPDATE ERROR]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 // Cancel an appointment (by patient or doctor)
 exports.cancelAppointment = async (req, res) => {
@@ -110,4 +171,20 @@ exports.getDoctorAppointments = async(req,res) => {
   }).populate('patient','name phone');
 
   res.json(appointments);
+};
+
+exports.getPatientHistory = async (req, res) => {
+  const doctorId = req.user.id;
+  const { patientId } = req.params;
+
+  try {
+    const history = await Appointment.find({
+      doctor: doctorId,
+      patient: patientId,
+    }).sort({ date: -1 });
+
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch patient history' });
+  }
 };

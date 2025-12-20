@@ -1,78 +1,137 @@
-// DoctorDashboard.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
+import DashboardLayout from '../components/DoctorDashboard/DashboardLayout';
+import TabButtons from '../components/DoctorDashboard/TabButtons';
+import ScheduleTab from '../components/DoctorDashboard/ScheduleTab';
+import AddPatientTab from '../components/DoctorDashboard/AddPatientTab';
+import HistoryTab from '../components/DoctorDashboard/HistoryTab';
+
+import {
+  FaCalendarAlt,
+  FaHistory,
+  FaFileInvoice,
+  FaPrescriptionBottle,
+  FaUserPlus,
+} from 'react-icons/fa';
 
 const DoctorDashboard = () => {
+  const [activeTab, setActiveTab] = useState('schedule');
   const [appointments, setAppointments] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [view, setView] = useState('month');
+  const [date, setDate] = useState(new Date());
+  const [newPatient, setNewPatient] = useState({ name: '', phone: '' });
+  const [addMessage, setAddMessage] = useState('');
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [newAppointment, setNewAppointment] = useState(null);
 
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const res = await api.get('/appointments/doctor', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        setAppointments(res.data);
-      } catch (err) {
-        console.error('Failed to fetch doctor appointments:', err);
-      }
-    };
-    fetchAppointments();
-  }, []);
-
-  const cancelAppointment = async (id) => {
+  const fetchAppointments = async () => {
     try {
-      await api.delete(`/appointments/${id}`, {
+      const res = await api.get('/appointments/doctor', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
-      setAppointments(prev => prev.filter(a => a._id !== id));
+      const formatted = res.data.map(a => ({
+        ...a,
+        title: `${a.patient?.name || 'Unknown'} - ${a.type}`,
+        start: new Date(a.date),
+        end: new Date(new Date(a.date).getTime() + 30 * 60000),
+      }));
+      setAppointments(formatted);
     } catch (err) {
-      alert('Failed to cancel appointment');
+      console.error('Failed to fetch doctor appointments:', err);
     }
   };
 
+  const fetchPatients = async () => {
+    try {
+      const res = await api.get('/patients', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setPatients(res.data);
+    } catch (err) {
+      console.error('Failed to fetch patients:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+    fetchPatients();
+  }, []);
+
+  const handleNavigate = (action) => {
+    const newDate = new Date(date);
+    if (action === 'PREV') newDate.setMonth(newDate.getMonth() - 1);
+    else if (action === 'NEXT') newDate.setMonth(newDate.getMonth() + 1);
+    setDate(newDate);
+  };
+
+  const handleAddPatient = async (e) => {
+    e.preventDefault();
+    const phoneRegex = /^05\d{8}$/;
+    if (!phoneRegex.test(newPatient.phone)) {
+      setAddMessage('❌ Phone number must start with 05 and be 10 digits');
+      setTimeout(() => setAddMessage(''), 3000);
+      return;
+    }
+    try {
+      await api.post('/patients', newPatient, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setAddMessage('✅ Patient added successfully!');
+      setNewPatient({ name: '', phone: '' });
+      fetchPatients();
+    } catch (err) {
+      setAddMessage(err.response?.data?.message || '❌ Failed to add patient.');
+    }
+    setTimeout(() => setAddMessage(''), 3000);
+  };
+
+  const tabs = [
+    { key: 'schedule', label: 'Schedule', icon: <FaCalendarAlt /> },
+    { key: 'history', label: 'History', icon: <FaHistory /> },
+    { key: 'invoice', label: 'חשבונית ירוקה', icon: <FaFileInvoice /> },
+    { key: 'prescription', label: 'רושטה', icon: <FaPrescriptionBottle /> },
+    { key: 'add', label: 'הוספת מטופלים', icon: <FaUserPlus /> },
+  ];
+
   return (
-    <div className="relative min-h-screen bg-gray-50 px-6 py-10">
-      {/* Logout */}
-      <button
-        onClick={() => {
-          localStorage.clear();
-          window.location.href = '/';
-        }}
-        className="absolute top-6 right-6 px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600 transition"
-      >
-        Logout
-      </button>
+    <DashboardLayout
+      onLogout={() => {
+        localStorage.clear();
+        window.location.href = '/';
+      }}
+    >
+      <TabButtons tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="max-w-5xl mx-auto mt-20">
-        <h2 className="text-3xl font-bold text-blue-800 mb-6">Doctor Dashboard</h2>
+      {activeTab === 'schedule' && (
+        <ScheduleTab
+          appointments={appointments}
+          selectedAppointment={selectedAppointment}
+          setSelectedAppointment={setSelectedAppointment}
+          newAppointment={newAppointment}
+          setNewAppointment={setNewAppointment}
+          patients={patients}
+          fetchAppointments={fetchAppointments}
+          view={view}
+          setView={setView}
+          date={date}
+          setDate={setDate}
+          handleNavigate={handleNavigate}
+        />
+      )}
 
-        <h3 className="text-xl font-semibold mb-4">Upcoming Appointments</h3>
-        {appointments.length === 0 ? (
-          <p className="text-gray-600">No scheduled appointments.</p>
-        ) : (
-          <ul className="space-y-4">
-            {appointments.map(a => (
-              <li key={a._id} className="bg-white p-4 border rounded-xl shadow">
-                <div className="flex justify-between mb-2">
-                  <span className="font-semibold">{a.patient?.name || 'Unknown Patient'}</span>
-                  <span className="text-sm text-gray-600">
-                    {new Date(a.date).toLocaleDateString()} - {new Date(a.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <p className="text-gray-700 text-sm">Treatment: {a.type}</p>
-                <p className="text-gray-600 text-xs mb-2">Status: {a.status}</p>
-                <button
-                  onClick={() => cancelAppointment(a._id)}
-                  className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded"
-                >
-                  Cancel Appointment
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+      {activeTab === 'add' && (
+        <AddPatientTab
+          newPatient={newPatient}
+          setNewPatient={setNewPatient}
+          handleAddPatient={handleAddPatient}
+          addMessage={addMessage}
+        />
+      )}
+      {activeTab === 'history' && (
+  <HistoryTab patients={patients} />
+      )}
+    </DashboardLayout>
   );
 };
 

@@ -9,15 +9,26 @@ const authRoutes = require('./routes/auth');
 const appointmentRoutes = require('./routes/appointments');
 
 const app = express();
-app.use(cors());
+
+// ✅ Only use this CORS middleware — don't set manual headers
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+
 app.use(express.json());
 
+const patientRoutes = require('./routes/patients');
+app.use('/api', patientRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('MongoDB connected');
-    app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));
+    console.log('✅ MongoDB connected');
+    app.listen(process.env.PORT || 5050, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${process.env.PORT}`);
+    });
   })
-  .catch(err => console.error(err));
+  .catch(err => console.error('❌ MongoDB connection error:', err));
