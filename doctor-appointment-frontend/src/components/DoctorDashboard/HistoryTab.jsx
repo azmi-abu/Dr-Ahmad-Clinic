@@ -1,115 +1,229 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
-import moment from 'moment';
-import {
-  FaBell,
-  FaEdit,
-  FaFileInvoice,
-  FaPrescriptionBottleAlt,
-} from 'react-icons/fa';
+import React, { useMemo, useState } from "react";
+import api from "../../services/api";
 
-const HistoryTab = ({ patients }) => {
-  const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [history, setHistory] = useState([]);
+const FORMS = [
+  { key: "botox", label: "טופס הסכמה לטיפול בוטוקס" },
+  { key: "hyaluronic", label: "טופס הסכמה לטיפול חומצה הלריונית" },
+  { key: "sculptra", label: "טופס הסכמה לטיפול בסקולפטרא" },
+  { key: "salmon", label: "טופס הסכמה לטיפול בזרע סלמון" },
+];
 
-  const fetchHistory = async (patientId) => {
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const HistoryTab = ({ patients, fetchPatients }) => {
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [uploadingKey, setUploadingKey] = useState("");
+  const [msg, setMsg] = useState({ type: "", text: "" });
+
+  const selectedPatient = useMemo(
+    () => patients.find((p) => p._id === selectedPatientId),
+    [patients, selectedPatientId]
+  );
+
+  const showMsg = (type, text) => {
+    setMsg({ type, text });
+    setTimeout(() => setMsg({ type: "", text: "" }), 3000);
+  };
+
+  const handleUploadForm = async (formKey, file) => {
+  if (!selectedPatientId) return;
+
+  try {
+    setUploadingKey(formKey);
+    setMsg({ type: "", text: "" });
+
+    if (file.size > 8 * 1024 * 1024) {
+      showMsg("bad", "❌ הקובץ גדול מדי (מקסימום 8MB)");
+      return;
+    }
+
+    const base64 = await fileToBase64(file);
+
+    await api.put(
+      `/patients/${selectedPatientId}/forms/${formKey}`,
+      {
+        fileBase64: base64,
+        filename: file.name,
+        mimeType: file.type || "application/pdf",
+      },
+      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+    );
+
+    // 🔥 HERE — refresh patients from server
+    await fetchPatients();
+
+    showMsg("ok", "✅ הטופס הועלה בהצלחה");
+  } catch (err) {
+    console.error(err);
+    showMsg("bad", "❌ העלאת טופס נכשלה");
+  } finally {
+    setUploadingKey("");
+  }
+};
+
+
+  const handleDownloadForm = async (formKey) => {
+    if (!selectedPatientId) return;
+
     try {
-      const res = await api.get(`/appointments/history/${patientId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      const res = await api.get(`/patients/${selectedPatientId}/forms/${formKey}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        responseType: "blob",
       });
 
-      // Remove cancelled and sort by date ascending
-      const sorted = res.data
-        .filter((appt) => appt.status !== 'cancelled')
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      setHistory(sorted);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${formKey}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Failed to fetch history:', err);
+      console.error(err);
+      showMsg("bad", "❌ הורדה נכשלה או שהטופס לא קיים");
     }
   };
 
-  useEffect(() => {
-    if (selectedPatientId) fetchHistory(selectedPatientId);
-  }, [selectedPatientId]);
+  const patientLabel = (p) => `${p.name} (${p.phone})`;
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow">
-      <h2 className="text-xl font-semibold text-blue-800 mb-4">Patient History</h2>
-  
-      <label className="block mb-2 font-medium">:בחר מטופל</label>
-      <select
-        value={selectedPatientId}
-        onChange={(e) => setSelectedPatientId(e.target.value)}
-        className="border p-2 rounded mb-4 w-full"
-      >
-        <option value="">Select...</option>
-        {patients.map((p) => (
-          <option key={p._id} value={p._id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-  
-      {history.length > 0 ? (
-        <ul className="divide-y">
-          {history.map((appt) => {
-            const isPast = moment(appt.date).isBefore(moment());
-            const displayStatus = isPast ? 'Completed' : appt.status;
-  
-            return (
-                <li
-                key={appt._id}
-                className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0"
-              >
-                <div className="text-sm sm:text-base flex-1">
-                  <strong>{appt.type}</strong> — {moment(appt.date).format('LLL')} —{' '}
-                  <span
-                    className={
-                      displayStatus === 'Completed'
-                        ? 'text-gray-600'
-                        : 'text-green-600'
-                    }
-                  >
-                    {displayStatus}
-                  </span>
+    <div className="card card-pad">
+
+      <div className="field">
+        <label>בחר מטופל</label>
+        <select
+          value={selectedPatientId}
+          onChange={(e) => setSelectedPatientId(e.target.value)}
+        >
+          <option value="">בחר מטופל...</option>
+          {patients.map((p) => (
+            <option key={p._id} value={p._id}>
+              {patientLabel(p)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {msg.text && (
+        <div className={`alert ${msg.type === "ok" ? "ok" : "bad"}`}>
+          {msg.text}
+        </div>
+      )}
+
+      {!selectedPatientId && (
+        <div style={{ marginTop: 10, color: "var(--muted)", fontWeight: 800 }}>
+          בחר מטופל כדי להעלות/להוריד טפסים.
+        </div>
+      )}
+
+      {selectedPatientId && !selectedPatient && (
+        <div style={{ marginTop: 10, color: "var(--muted)", fontWeight: 800 }}>
+          מטופל לא נמצא.
+        </div>
+      )}
+
+      {selectedPatient && (
+        <div style={{ marginTop: 16 }}>
+          {/* Patient header */}
+          <div className="patient-card">
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="avatar">
+                {selectedPatient.profileImage?.data ? (
+                  <img
+                    src={selectedPatient.profileImage.data}
+                    alt={selectedPatient.name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  "No image"
+                )}
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 1000, fontSize: 16 }}>
+                  {selectedPatient.name}
                 </div>
-              
-                <div className="flex gap-2 text-xl sm:ml-4">
-                  {displayStatus === 'Completed' ? (
-                    <>
-                      <FaFileInvoice
-                        title="חשבונית ירוקה"
-                        className="text-blue-700 cursor-pointer"
-                      />
-                      <FaPrescriptionBottleAlt
-                        title="רושטה"
-                        className="text-purple-600 cursor-pointer"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <FaBell
-                        title="שלח תזכורת"
-                        className="text-yellow-500 cursor-pointer"
-                      />
-                      <FaEdit
-                        title="ערוך"
-                        className="text-gray-700 cursor-pointer"
-                      />
-                    </>
-                  )}
+                <div style={{ color: "var(--muted)", fontWeight: 800, fontSize: 13 }}>
+                  {selectedPatient.phone}
                 </div>
-              </li>
-              
-            );
-          })}
-        </ul>
-      ) : (
-        selectedPatientId && <p>אין למטופל זה היסטוריית טיפולים.</p>
+              </div>
+            </div>
+
+            <div className="badge">
+              {FORMS.filter((f) => !!selectedPatient.consentForms?.[f.key]?.data).length}
+              /{FORMS.length} טפסים הועלו
+            </div>
+          </div>
+
+          {/* Forms list */}
+          <div style={{ marginTop: 14 }}>
+            <div className="section-title">רשימת טפסים</div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {FORMS.map((f) => {
+                const hasFile = !!selectedPatient.consentForms?.[f.key]?.data;
+
+                return (
+                  <div key={f.key} className="form-item">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className={`badge ${hasFile ? "ok" : "no"}`}>
+                        {hasFile ? "✅ קיים" : "❌ חסר"}
+                      </span>
+                      <div style={{ fontWeight: 900 }}>{f.label}</div>
+                    </div>
+
+                    <div className="form-actions">
+                      {/* Upload */}
+                      <label className="btn btn-soft btn-small" style={{ cursor: "pointer" }}>
+                        {uploadingKey === f.key ? "מעלה..." : "העלה קובץ"}
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          style={{ display: "none" }}
+                          disabled={uploadingKey === f.key}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            handleUploadForm(f.key, file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+
+                      {/* Download */}
+                      {hasFile ? (
+                        <button
+                          className="btn btn-primary btn-small"
+                          onClick={() => handleDownloadForm(f.key)}
+                        >
+                          הורד
+                        </button>
+                      ) : (
+                        <span style={{ color: "var(--muted)", fontWeight: 900, fontSize: 13 }}>
+                          אין קובץ
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 12, color: "var(--muted)", fontWeight: 800, fontSize: 13 }}>
+              * ניתן להעלות PDF או תמונה. גודל מקסימלי: 8MB
+            </div>
+          </div>
+        </div>
       )}
     </div>
-  );  
+  );
 };
 
 export default HistoryTab;

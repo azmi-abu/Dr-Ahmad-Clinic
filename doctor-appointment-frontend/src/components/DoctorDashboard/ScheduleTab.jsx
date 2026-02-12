@@ -2,7 +2,6 @@ import React from 'react';
 import CalendarView from './CalendarView';
 import AppointmentModal from './AppointmentModal';
 import NewAppointmentModal from './NewAppointmentModal';
-import moment from 'moment';
 
 const ScheduleTab = ({
   appointments,
@@ -37,12 +36,7 @@ const ScheduleTab = ({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-2">
-        <button onClick={() => handleNavigate('PREV')} className="text-lg">⬅️</button>
-        <h3 className="text-xl font-semibold">{moment(date).format('MMMM YYYY')}</h3>
-        <button onClick={() => handleNavigate('NEXT')} className="text-lg">➡️</button>
-      </div>
-
+      
       <CalendarView
         appointments={appointments}
         view={view}

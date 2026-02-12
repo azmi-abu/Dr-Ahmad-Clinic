@@ -6,6 +6,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 const localizer = momentLocalizer(moment);
 
 const CalendarView = ({ appointments, view, setView, date, setDate, onSelectEvent, onSelectSlot }) => (
+  <div style={{ background: "white", borderRadius: 16, padding: 16, border: "1px solid #e2e8f0" }}>
   <Calendar
     localizer={localizer}
     events={appointments}
@@ -21,6 +22,7 @@ const CalendarView = ({ appointments, view, setView, date, setDate, onSelectEven
     onSelectEvent={onSelectEvent}
     onSelectSlot={onSelectSlot}
   />
+  </div>
 );
 
 export default CalendarView;

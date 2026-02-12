@@ -1,51 +1,198 @@
-import React from 'react';
+import React, { useState } from "react";
 
-const AddPatientTab = ({ newPatient, setNewPatient, handleAddPatient, addMessage }) => (
-  <div className="mt-6 p-4 bg-white rounded-xl shadow animate-fade-in">
-    <img
-      src="/images/doctor-patient_hd.jpg"
-      alt="Doctor and Patient"
-      className="w-full h-[200px] md:h-[300px] object-cover rounded-lg mb-4 shadow"
-    />
+const isValidName = (name) => /^[A-Za-z\u0590-\u05FF\s]+$/.test(name.trim());
+const isValidPhone = (phone) => /^05\d{8}$/.test(phone); // 10 digits, starts with 05
 
-    <h2 className="text-xl font-semibold mb-4 text-center text-blue-800">הוספת מטופל חדש</h2>
+const AddPatientTab = ({
+  newPatient,
+  setNewPatient,
+  handleAddPatient,
+  addMessage,
+}) => {
+  const [preview, setPreview] = useState("");
+  const [imageBase64, setImageBase64] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({ name: "", phone: "" });
 
-    <form onSubmit={handleAddPatient} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <input
-        type="text"
-        value={newPatient.name}
-        onChange={(e) => setNewPatient((p) => ({ ...p, name: e.target.value }))}
-        placeholder="Full Name"
-        className="px-4 py-2 border rounded"
-        required
-      />
-      <input
-        type="text"
-        value={newPatient.phone}
-        onChange={(e) => {
-          const val = e.target.value;
-          if (!/^[0-9]*$/.test(val)) return;
-          if (val.length > 10) return;
-          setNewPatient((p) => ({ ...p, phone: val }));
-        }}
-        placeholder="Phone (e.g. 0501234567)"
-        className="px-4 py-2 border rounded"
-        required
-      />
-      <button
-        type="submit"
-        className="col-span-1 md:col-span-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm transition w-fit mx-auto"
-      >
-        Add Patient
-      </button>
-    </form>
+  const handlePickFile = (file) => {
+    if (!file) return;
 
-    {addMessage && (
-      <p className={`mt-4 text-sm text-center ${addMessage.startsWith('✅') ? 'text-green-700' : 'text-red-600 animate-shake'}`}>
-        {addMessage}
-      </p>
-    )}
-  </div>
-);
+    // limit 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert("הקובץ גדול מדי (מקסימום 5MB)");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result; // data:image/...;base64,...
+      setImageBase64(base64);
+      setPreview(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+
+    const nameOk = isValidName(newPatient.name);
+    const phoneOk = isValidPhone(newPatient.phone);
+
+    const nextErrors = {
+      name: nameOk ? "" : "שם יכול להכיל אותיות ורווחים בלבד",
+      phone: phoneOk ? "" : "מספר טלפון חייב להיות 10 ספרות ולהתחיל ב־05",
+    };
+    setErrors(nextErrors);
+
+    if (!nameOk || !phoneOk) return;
+
+    try {
+      setLoading(true);
+      await handleAddPatient(e, imageBase64);
+
+      // clear preview on success (your handler already clears form fields)
+      setPreview("");
+      setImageBase64("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card card-pad">
+      <div className="section-title">הוספת מטופל חדש</div>
+
+      {addMessage && (
+        <div className={`alert ${addMessage.includes("✅") ? "ok" : "bad"}`}>
+          {addMessage}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="grid" style={{ gap: 14 }}>
+        {/* Inputs */}
+        <div
+          className="grid"
+          style={{
+            gap: 12,
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          }}
+        >
+          {/* FULL NAME */}
+          <div className="field">
+            <label>שם מלא</label>
+            <input
+              className={`input ${errors.name ? "input-error" : ""}`}
+              placeholder="הכנס שם מלא"
+              value={newPatient.name}
+              onChange={(e) => {
+                const value = e.target.value;
+                setNewPatient({ ...newPatient, name: value });
+
+                setErrors((prev) => ({
+                  ...prev,
+                  name:
+                    value && !isValidName(value)
+                      ? "שם יכול להכיל אותיות ורווחים בלבד"
+                      : "",
+                }));
+              }}
+              required
+            />
+            {errors.name && <div className="error-text">{errors.name}</div>}
+          </div>
+
+          {/* PHONE */}
+          <div className="field">
+            <label>טלפון</label>
+            <input
+              className={`input ${errors.phone ? "input-error" : ""}`}
+              placeholder="05XXXXXXXX"
+              value={newPatient.phone}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 10); // digits only, max 10
+                setNewPatient({ ...newPatient, phone: value });
+
+                setErrors((prev) => ({
+                  ...prev,
+                  phone:
+                    value && !isValidPhone(value)
+                      ? "מספר טלפון חייב להיות 10 ספרות ולהתחיל ב־05"
+                      : "",
+                }));
+              }}
+              inputMode="numeric"
+              maxLength={10}
+              required
+            />
+            {errors.phone && <div className="error-text">{errors.phone}</div>}
+          </div>
+        </div>
+
+        {/* Image Upload */}
+        <div className="item-card">
+          <div className="row" style={{ alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontWeight: 1000, marginBottom: 6 }}>תמונת מטופל</div>
+              <div className="meta">PNG/JPG – עד 5MB</div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <label className="btn btn-primary btn-small" style={{ cursor: "pointer" }}>
+                העלאת תמונה
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => handlePickFile(e.target.files?.[0])}
+                />
+              </label>
+
+              {preview ? (
+                <div className="avatar" style={{ width: 56, height: 56 }}>
+                  <img
+                    src={preview}
+                    alt="preview"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </div>
+              ) : (
+                <div className="avatar" style={{ width: 56, height: 56, color: "var(--muted)" }}>
+                  No image
+                </div>
+              )}
+
+              {(preview || imageBase64) && (
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  onClick={() => {
+                    setPreview("");
+                    setImageBase64("");
+                  }}
+                >
+                  הסר
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="row" style={{ justifyContent: "flex-end" }}>
+          <button className="btn btn-primary" type="submit" disabled={loading}>
+            {loading ? "מוסיף..." : "הוסף מטופל"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
 
 export default AddPatientTab;

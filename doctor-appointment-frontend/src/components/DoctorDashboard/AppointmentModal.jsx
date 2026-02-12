@@ -65,23 +65,23 @@ const AppointmentModal = ({ appointment, setAppointment, fetchAppointments }) =>
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Edit Appointment</h2>
+        <h2 className="text-xl font-semibold mb-4">ערוך פגישה</h2>
 
-        <p><strong>Patient:</strong> {appointment.patient?.name}</p>
+        <p><strong>מטופל:</strong> {appointment.patient?.name}</p>
 
-        <label className="block mt-4">Treatment Type:</label>
+        <label className="block mt-4">סוג טיפול:</label>
         <select
           value={appointment.type || ''}
           onChange={(e) => setAppointment({ ...appointment, type: e.target.value })}
           className="border rounded p-2 w-full"
         >
-          <option value="">Select treatment...</option>
+          <option value="">בחר טיפול מהרשימה..</option>
           {treatments.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
 
-        <label className="block mt-4">Date & Time:</label>
+        <label className="block mt-4">תאריך ושעה:</label>
         <input
           type="datetime-local"
           className="border rounded p-2 w-full"
@@ -101,19 +101,19 @@ const AppointmentModal = ({ appointment, setAppointment, fetchAppointments }) =>
             className="bg-blue-600 text-white px-4 py-2 rounded"
             disabled={!appointment.type}
           >
-            Save
+            שמור
           </button>
           <button
             onClick={handleDelete}
             className="bg-red-500 text-white px-4 py-2 rounded"
           >
-            Cancel Appointment
+            ביטול פגישה
           </button>
           <button
             onClick={() => setAppointment(null)}
             className="px-4 py-2 text-gray-600 hover:underline"
           >
-            Close
+            סגור
           </button>
         </div>
       </div>
