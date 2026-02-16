@@ -62,7 +62,7 @@ app.use("/api/notifications", notificationsRoutes);
 // ✅ Start server FIRST (so you never get connection refused)
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌐 Allowed Origin: ${CLIENT_ORIGIN}`);
+  console.log("🌐 Allowed Origins:", allowedOrigins);
   console.log("BREVO_API_KEY loaded?", !!process.env.BREVO_API_KEY);
   console.log("MAIL_FROM:", process.env.MAIL_FROM ? "[set]" : "[missing]");
   console.log("MONGO_URI:", process.env.MONGO_URI ? "[set]" : "[missing]");
