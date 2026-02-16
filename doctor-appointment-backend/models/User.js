@@ -6,13 +6,13 @@ const availabilitySchema = new mongoose.Schema({
     enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     required: true
   },
-  from: { type: String, required: true }, // e.g., "09:00"
-  to: { type: String, required: true }    // e.g., "17:00"
+  from: { type: String, required: true },
+  to: { type: String, required: true }
 });
 
 const consentFormSchema = new mongoose.Schema(
   {
-    data: String,       // data:<mime>;base64,xxxx
+    data: String,
     filename: String,
     mimeType: String,
     uploadedAt: Date,
@@ -22,18 +22,29 @@ const consentFormSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true },
+
+  email: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+    // optional basic validation (won't block empty because sparse)
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email'],
+  },
+
   name: { type: String, required: true },
-  otp: String,
+
+  otp: String,       // store bcrypt hash here (we’ll do in controller)
   otpExpires: Date,
+
   role: { type: String, enum: ['doctor', 'patient'], default: 'patient' },
 
-  // ✅ Profile picture
   profileImage: {
-    data: String,       // data:image/...;base64,...
+    data: String,
     uploadedAt: Date,
   },
 
-  // ✅ Consent forms stored on the patient
   consentForms: {
     botox: consentFormSchema,
     hyaluronic: consentFormSchema,
@@ -41,7 +52,7 @@ const userSchema = new mongoose.Schema({
     salmon: consentFormSchema,
   },
 
-  availability: [availabilitySchema] // Only relevant if role is doctor
+  availability: [availabilitySchema]
 });
 
 module.exports = mongoose.model('User', userSchema);

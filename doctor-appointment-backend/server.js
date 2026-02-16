@@ -2,8 +2,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const notificationsRoutes = require("./routes/notifications");
 
 dotenv.config();
+
+console.log("BREVO_API_KEY loaded?", !!process.env.BREVO_API_KEY);
+console.log("MAIL_FROM:", process.env.MAIL_FROM);
 
 const authRoutes = require('./routes/auth');
 const appointmentRoutes = require('./routes/appointments');
@@ -27,6 +31,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use("/api/prescriptions", prescriptionsRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {

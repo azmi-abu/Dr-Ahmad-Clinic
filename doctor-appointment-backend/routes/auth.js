@@ -1,12 +1,13 @@
 const router = require('express').Router();
-const { requestOTP, verifyOTP } = require('../controllers/authController');
+const { requestOTP, verifyOTP,   requestOTPEmailByPhone, verifyOTPEmailByPhone } = require('../controllers/authController');
 const { auth } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 
 // Auth endpoints
 router.post('/request-otp', requestOTP);
 router.post('/verify-otp', verifyOTP);
-
+router.post("/request-otp-email-by-phone", requestOTPEmailByPhone);
+router.post("/verify-otp-email-by-phone", verifyOTPEmailByPhone);
 // Get all doctors
 router.get('/doctors', auth, async (req, res) => {
   const doctors = await User.find({ role: 'doctor' });

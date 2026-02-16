@@ -6,6 +6,8 @@ import ScheduleTab from "../components/DoctorDashboard/ScheduleTab";
 import AddPatientTab from "../components/DoctorDashboard/AddPatientTab";
 import HistoryTab from "../components/DoctorDashboard/HistoryTab";
 import PrescriptionsTab from "../components/DoctorDashboard/PrescriptionsTab";
+import { FaWhatsapp } from "react-icons/fa";
+import RemindersTab from "../components/DoctorDashboard/RemindersTab";
 
 import { FaCalendarAlt, FaFileInvoice, FaUserPlus } from "react-icons/fa";
 import { FaClipboardList } from "react-icons/fa6";
@@ -112,6 +114,7 @@ const DoctorDashboard = () => {
     { key: "history", label: "טפסי הסכמה", icon: <FaClipboardList /> },
     { key: "prescriptions", label: "מרשמים", icon: <FaNotesMedical /> },
     { key: "add", label: "הוספת מטופלים", icon: <FaUserPlus /> },
+    { key: "reminders", label: "תזכורות וואטסאפ", icon: <FaWhatsapp /> },
     { key: "invoice", label: "חשבונית ירוקה", icon: <FaFileInvoice /> },
 
   ];
@@ -163,6 +166,15 @@ const DoctorDashboard = () => {
       {activeTab === "history" && (
         <HistoryTab patients={patients} fetchPatients={fetchPatients} />
       )}
+
+      {activeTab === "reminders" && (
+  <RemindersTab
+    appointments={appointments}
+    fetchAppointments={fetchAppointments}
+    patients={patients}
+  />
+)}
+
 
       {activeTab === "prescriptions" && (
         <PrescriptionsTab patients={patients} fetchPatients={fetchPatients} />
