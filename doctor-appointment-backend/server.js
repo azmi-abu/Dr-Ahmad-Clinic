@@ -18,13 +18,27 @@ const PORT = process.env.PORT || 5000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
 
 // ✅ Middleware
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: CLIENT_ORIGIN,
+    origin: (origin, cb) => {
+      // allow requests with no origin (curl/postman)
+      if (!origin) return cb(null, true);
+
+      // allow if origin is in the list
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      return cb(new Error(`CORS blocked: ${origin}`), false);
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
+
 
 // ✅ IMPORTANT: increase JSON payload for base64 uploads (forms/images)
 app.use(express.json({ limit: "25mb" }));
