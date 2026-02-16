@@ -18,19 +18,20 @@ const PORT = process.env.PORT || 5000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
 
 // ✅ Middleware
+const normalizeOrigin = (url) => (url || "").replace(/\/$/, "");
+
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:3000")
   .split(",")
-  .map((s) => s.trim())
+  .map((s) => normalizeOrigin(s.trim()))
   .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // allow requests with no origin (curl/postman)
       if (!origin) return cb(null, true);
 
-      // allow if origin is in the list
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      const normalized = normalizeOrigin(origin);
+      if (allowedOrigins.includes(normalized)) return cb(null, true);
 
       return cb(new Error(`CORS blocked: ${origin}`), false);
     },
